@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSocket } from './hooks/useSocket';
 import { useWebRTC } from './hooks/useWebRTC';
 import { cn } from './lib/utils';
-import { Users, Moon, Sun, Shield, Search, Skull, Info, X } from 'lucide-react';
+import { Users, Moon, Sun, Shield, Search, Skull, Info, X, ScrollText } from 'lucide-react';
 
 export default function App() {
   const { socket, isConnected } = useSocket();
@@ -14,6 +14,7 @@ export default function App() {
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [actionTarget, setActionTarget] = useState<string | null>(null);
   const [detectiveResult, setDetectiveResult] = useState<{ targetId: string, isMafia: boolean } | null>(null);
+  const [gameLog, setGameLog] = useState<string[]>([]);
 
   const { streams } = useWebRTC(
     lobby?.state !== 'waiting' ? socket : null,
@@ -37,11 +38,33 @@ export default function App() {
       setMyPlayer((prev: any) => ({ ...prev, role: data.myRole }));
       setActionTarget(null);
       setDetectiveResult(null);
+      setGameLog(['Game started! Night 1 has begun.']);
     });
 
     socket.on('phase_change', ({ phase, dayNumber, killedPlayer }) => {
       setLobby((prev: any) => ({ ...prev, state: phase, dayNumber, votes: {}, nightActions: {} }));
       setActionTarget(null);
+      
+      setGameLog(prev => {
+        const newLogs = [...prev];
+        if (phase === 'night') {
+          if (killedPlayer) {
+            newLogs.push(`Day ${dayNumber - 1}: ${killedPlayer.username} was voted out.`);
+          } else {
+            newLogs.push(`Day ${dayNumber - 1}: The town decided to skip voting or tied.`);
+          }
+          newLogs.push(`Night ${dayNumber} has begun.`);
+        } else if (phase === 'day') {
+          if (killedPlayer) {
+            newLogs.push(`Night ${dayNumber}: ${killedPlayer.username} was killed in the night.`);
+          } else {
+            newLogs.push(`Night ${dayNumber}: No one was killed in the night.`);
+          }
+          newLogs.push(`Day ${dayNumber} has begun.`);
+        }
+        return newLogs;
+      });
+
       if (killedPlayer && killedPlayer.id === myPlayer?.id) {
         setMyPlayer((prev: any) => ({ ...prev, isAlive: false }));
       }
@@ -262,11 +285,24 @@ export default function App() {
               {((lobby.state === 'day') || (lobby.state === 'night' && myPlayer?.role !== 'Villager')) ? (
                 <div className="space-y-4">
                   <p className="text-sm text-zinc-300">
-                    {lobby.state === 'day' ? 'Select a player to vote for elimination.' : 
+                    {lobby.state === 'day' ? 'Select a player to vote for elimination, or skip.' : 
                      myPlayer?.role === 'Mafia' ? 'Select a player to eliminate.' :
                      myPlayer?.role === 'Doctor' ? 'Select a player to protect.' :
                      'Select a player to investigate.'}
                   </p>
+
+                  {lobby.state === 'day' && (
+                    <button
+                      onClick={() => setActionTarget('skip')}
+                      className={cn(
+                        "w-full py-2 rounded-lg border text-sm font-medium transition-colors",
+                        actionTarget === 'skip' ? "bg-zinc-800 border-zinc-500 text-white" : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                      )}
+                    >
+                      Skip Vote
+                    </button>
+                  )}
+
                   <button
                     onClick={handleAction}
                     disabled={!actionTarget}
@@ -278,6 +314,26 @@ export default function App() {
               ) : (
                 <p className="text-sm text-zinc-500">You have no actions during the night. Wait for day.</p>
               )}
+            </div>
+          )}
+
+          {/* Game Log */}
+          {lobby.state !== 'waiting' && (
+            <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800 flex-1 overflow-hidden flex flex-col max-h-[400px]">
+              <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <ScrollText className="w-4 h-4" /> Game Log
+              </h3>
+              <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                {gameLog.length === 0 ? (
+                  <p className="text-sm text-zinc-600 italic">Game started. Check here for events.</p>
+                ) : (
+                  gameLog.map((log, i) => (
+                    <div key={i} className="text-sm text-zinc-300 border-l-2 border-zinc-700 pl-3 py-1">
+                      {log}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>

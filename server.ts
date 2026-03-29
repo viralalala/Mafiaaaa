@@ -192,7 +192,7 @@ async function startServer() {
         const targets = Object.keys(counts).filter(k => counts[k] === maxVotes);
 
         let killedPlayer = null;
-        if (targets.length === 1) {
+        if (targets.length === 1 && targets[0] !== 'skip') {
           const p = lobby.players.find((p: any) => p.id === targets[0]);
           if (p) {
             p.isAlive = false;
