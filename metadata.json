@@ -1,0 +1,5 @@
+{
+  "name": "Mafia Online",
+  "description": "A multiplayer social deduction game with real-time proximity voice chat.",
+  "requestFramePermissions": ["camera", "microphone"]
+}
